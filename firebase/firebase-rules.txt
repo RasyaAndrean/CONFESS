@@ -1,0 +1,274 @@
+// Firebase Security Rules for Confess Application
+// File: firestore.rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isUser(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isNotRateLimited() {
+      // Check if user has made less than 10 posts in the last hour
+      let userPosts = query(
+        /databases/$(database)/documents/publicPosts,
+        [
+          where("authorId", "==", request.auth.uid),
+          where("timestamp", ">", request.time - duration.value(1, "h"))
+        ]
+      );
+      return userPosts.size() < 10;
+    }
+    
+    function isNotBlocked(targetUserId) {
+      let userData = getUserData();
+      return !(targetUserId in userData.blockedUsers);
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Allow users to read any profile
+      allow read: if isAuthenticated();
+      
+      // Allow users to create their own profile
+      allow create: if isAuthenticated() && isUser(userId);
+      
+      // Allow users to update their own profile
+      allow update: if isUser(userId);
+      
+      // Allow users to delete their own profile
+      allow delete: if isUser(userId);
+      
+      // Field validation
+      allow update, create: if 
+        // Required fields
+        ("username" in request.resource.data) &&
+        ("email" in request.resource.data) &&
+        // Validate email format
+        (request.resource.data.email is string && 
+         request.resource.data.email.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) &&
+        // Validate username length
+        (request.resource.data.username is string && 
+         request.resource.data.username.size() >= 3 && 
+         request.resource.data.username.size() <= 30) &&
+        // Cannot modify protected fields
+        (!("userId" in request.resource.data) || request.resource.data.userId == userId) &&
+        (!("createdAt" in request.resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+    }
+    
+    // Public Posts collection
+    match /publicPosts/{postId} {
+      // Allow everyone to read public posts
+      allow read: if isAuthenticated();
+      
+      // Allow authenticated users to create posts with rate limiting
+      allow create: if 
+        isAuthenticated() && 
+        isUser(request.resource.data.authorId) &&
+        isNotRateLimited() &&
+        // Validate required fields
+        ("content" in request.resource.data) &&
+        ("isAnonymous" in request.resource.data) &&
+        // Content length validation
+        (request.resource.data.content is string && 
+         request.resource.data.content.size() > 0 && 
+         request.resource.data.content.size() <= 1000);
+      
+      // Allow post author to update their post
+      allow update: if 
+        isAuthenticated() && 
+        isUser(resource.data.authorId) &&
+        // Only allow updating specific fields
+        (!("authorId" in request.resource.data) || request.resource.data.authorId == resource.data.authorId) &&
+        (!("postId" in request.resource.data) || request.resource.data.postId == postId);
+      
+      // Allow post author to delete their post
+      allow delete: if isAuthenticated() && isUser(resource.data.authorId);
+      
+      // Allow others to report posts (increment reports counter only)
+      allow update: if 
+        isAuthenticated() && 
+        !isUser(resource.data.authorId) &&
+        ("reports" in request.resource.data) &&
+        request.resource.data.reports == resource.data.reports + 1;
+    }
+    
+    // Comments subcollection
+    match /publicPosts/{postId}/comments/{commentId} {
+      // Allow reading comments if user can read the parent post
+      allow read: if isAuthenticated();
+      
+      // Allow creating comments with validation
+      allow create: if 
+        isAuthenticated() && 
+        isUser(request.resource.data.authorId) &&
+        ("content" in request.resource.data) &&
+        (request.resource.data.content is string && 
+         request.resource.data.content.size() > 0 && 
+         request.resource.data.content.size() <= 500);
+      
+      // Allow comment author to update/delete their comment
+      allow update, delete: if isAuthenticated() && isUser(resource.data.authorId);
+    }
+    
+    // Private Messages collection
+    match /privateMessages/{messageId} {
+      // Allow sender and recipient to read messages
+      allow read: if 
+        isAuthenticated() && 
+        (isUser(resource.data.senderId) || isUser(resource.data.recipientId));
+      
+      // Allow sending messages with validation
+      allow create: if 
+        isAuthenticated() && 
+        isUser(request.resource.data.senderId) &&
+        // Check if recipient has blocked sender
+        isNotBlocked(request.resource.data.recipientId) &&
+        ("content" in request.resource.data) &&
+        (request.resource.data.content is string && 
+         request.resource.data.content.size() > 0);
+      
+      // Allow recipient to mark as read
+      allow update: if 
+        isAuthenticated() && 
+        isUser(resource.data.recipientId) &&
+        // Only allow updating read status
+        ("isRead" in request.resource.data) &&
+        request.resource.data.isRead == true;
+      
+      // Allow sender and recipient to delete their messages
+      allow delete: if 
+        isAuthenticated() && 
+        (isUser(resource.data.senderId) || isUser(resource.data.recipientId));
+    }
+    
+    // Notifications collection
+    match /notifications/{notifId} {
+      // Allow user to read their notifications or global notifications
+      allow read: if 
+        isAuthenticated() && 
+        (isUser(resource.data.userId) || resource.data.userId == "all");
+      
+      // Allow creating notifications (server-side only)
+      allow create: if false; // Only allow through server functions
+      
+      // Allow user to mark their notifications as read
+      allow update: if 
+        isAuthenticated() && 
+        isUser(resource.data.userId) &&
+        ("isRead" in request.resource.data) &&
+        request.resource.data.isRead == true;
+      
+      // Allow user to delete their notifications
+      allow delete: if isAuthenticated() && isUser(resource.data.userId);
+    }
+    
+    // Bookmarks collection
+    match /bookmarks/{bookmarkId} {
+      // Allow user to read their own bookmarks
+      allow read: if isAuthenticated() && isUser(resource.data.userId);
+      
+      // Allow creating bookmarks
+      allow create: if 
+        isAuthenticated() && 
+        isUser(request.resource.data.userId) &&
+        ("postId" in request.resource.data);
+      
+      // Allow deleting bookmarks
+      allow delete: if isAuthenticated() && isUser(resource.data.userId);
+    }
+    
+    // Reports collection
+    match /reports/{reportId} {
+      // Allow reading reports (admin only - implement with custom claims)
+      allow read: if 
+        isAuthenticated() && 
+        // Check for admin role (implement with custom claims)
+        ("admin" in request.auth.token && request.auth.token.admin == true);
+      
+      // Allow creating reports
+      allow create: if 
+        isAuthenticated() && 
+        isUser(request.resource.data.reporterId) &&
+        ("postId" in request.resource.data) &&
+        ("reason" in request.resource.data);
+      
+      // Allow deleting reports (admin only)
+      allow delete: if 
+        isAuthenticated() && 
+        ("admin" in request.auth.token && request.auth.token.admin == true);
+    }
+    
+    // Comments collection (top-level for easier querying)
+    match /comments/{commentId} {
+      // Allow reading comments if user can read the associated post
+      allow read: if isAuthenticated();
+      
+      // Allow creating comments
+      allow create: if 
+        isAuthenticated() && 
+        isUser(request.resource.data.authorId) &&
+        ("postId" in request.resource.data) &&
+        ("content" in request.resource.data) &&
+        (request.resource.data.content is string && 
+         request.resource.data.content.size() > 0 && 
+         request.resource.data.content.size() <= 500);
+      
+      // Allow comment author to update/delete
+      allow update, delete: if isAuthenticated() && isUser(resource.data.authorId);
+    }
+  }
+}
+
+// Firebase Storage Security Rules
+// File: storage.rules
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Profile pictures
+    match /profile_pictures/{userId}/{imageId} {
+      // Allow user to read any profile picture
+      allow read: if true;
+      
+      // Allow user to upload their own profile picture
+      allow write: if 
+        request.auth != null && 
+        request.auth.uid == userId &&
+        // Validate file type
+        (request.resource.contentType.matches("image/.*")) &&
+        // Validate file size (max 5MB)
+        (request.resource.size < 5 * 1024 * 1024);
+    }
+    
+    // Post images
+    match /post_images/{postId}/{imageId} {
+      // Allow reading post images
+      allow read: if true;
+      
+      // Allow uploading post images
+      allow write: if 
+        request.auth != null &&
+        // Validate file type
+        (request.resource.contentType.matches("image/.*")) &&
+        // Validate file size (max 5MB)
+        (request.resource.size < 5 * 1024 * 1024);
+    }
+    
+    // Cache control for better performance
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if false; // Default deny write for unmatched paths
+    }
+  }
+}

@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#3b82f6">
+    <title>Confess - Anonymous Messaging Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Confess%22,%22short_name%22:%22Confess%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%23f9fafb%22,%22theme_color%22:%22%233b82f6%22}">
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --secondary-color: #10b981;
+            --accent-color: #ef4444;
+            --background-color: #f9fafb;
+            --text-color: #1f2937;
+        }
+        
+        .dark-mode {
+            --background-color: #111827;
+            --text-color: #f9fafb;
+        }
+        
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .like-animation {
+            animation: likePulse 0.5s ease;
+        }
+        @keyframes likePulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .emoji-picker {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .emoji-item {
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 5px;
+        }
+        .emoji-item:hover {
+            background-color: #e5e7eb;
+        }
+        .dark-mode .emoji-item:hover {
+            background-color: #374151;
+        }
+        .reaction-button {
+            transition: all 0.2s ease;
+        }
+        .reaction-button:hover {
+            transform: scale(1.1);
+        }
+        .progress-bar {
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navbar -->
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-heart text-red-500 text-2xl mr-2"></i>
+                        <span class="text-xl font-bold text-gray-800 dark:text-white">Confess</span>
+                    </div>
+                    <div class="hidden md:flex space-x-6">
+                        <button id="homeBtn" class="text-gray-600 hover:text-blue-500 font-medium dark:text-gray-300">
+                            <i class="fas fa-home mr-1"></i> Home
+                        </button>
+                        <button id="trendingBtn" class="text-gray-600 hover:text-blue-500 font-medium dark:text-gray-300">
+                            <i class="fas fa-fire mr-1"></i> Trending
+                        </button>
+                        <button id="bookmarksBtn" class="text-gray-600 hover:text-blue-500 font-medium dark:text-gray-300">
+                            <i class="fas fa-bookmark mr-1"></i> Saved
+                        </button>
+                        <button id="inboxBtn" class="text-gray-600 hover:text-blue-500 font-medium relative dark:text-gray-300">
+                            <i class="fas fa-inbox mr-1"></i> Inbox
+                            <span id="inboxBadge" class="notification-badge hidden">0</span>
+                        </button>
+                        <button id="notificationsBtn" class="text-gray-600 hover:text-blue-500 font-medium relative dark:text-gray-300">
+                            <i class="fas fa-bell mr-1"></i>
+                            <span id="notificationBadge" class="notification-badge hidden bg-blue-500">0</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <input type="text" id="searchUser" placeholder="Search user..." 
+                               class="px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 w-48">
+                        <i class="fas fa-search absolute right-3 top-3 text-gray-400"></i>
+                    </div>
+                    
+                    <div id="authSection">
+                        <button id="loginBtn" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 mr-2">
+                            Login
+                        </button>
+                        <button id="registerBtn" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                            Register
+                        </button>
+                    </div>
+                    
+                    <div id="userSection" class="hidden flex items-center space-x-3">
+                        <button id="themeToggle" class="text-gray-600 hover:text-yellow-500 dark:text-gray-300">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                        <button id="analyticsBtn" class="text-gray-600 hover:text-green-500 dark:text-gray-300">
+                            <i class="fas fa-chart-bar"></i>
+                        </button>
+                        <button id="profileBtn" class="flex items-center space-x-2">
+                            <img id="navProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full object-cover">
+                            <span id="navUsername" class="font-medium text-gray-700 dark:text-gray-200"></span>
+                        </button>
+                        <button id="logoutBtn" class="text-gray-600 hover:text-red-500 dark:text-gray-300">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <!-- Login/Register Modal -->
+        <div id="authModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-xl p-8 w-full max-w-md mx-4">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 id="modalTitle" class="text-2xl font-bold text-gray-800">Login</h2>
+                    <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <form id="authForm">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 mb-2">Username</label>
+                        <input type="text" id="authUsername" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label class="block text-gray-700 mb-2">Password</label>
+                        <input type="password" id="authPassword" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div id="profilePicField" class="mb-4 hidden">
+                        <label class="block text-gray-700 mb-2">Profile Picture URL</label>
+                        <input type="url" id="profilePicUrl" placeholder="https://example.com/image.jpg"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div id="bioField" class="mb-6 hidden">
+                        <label class="block text-gray-700 mb-2">Bio</label>
+                        <textarea id="userBio" placeholder="Tell us about yourself..."
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                    
+                    <button type="submit" id="authSubmit" 
+                            class="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 font-medium">
+                        Login
+                    </button>
+                </form>
+                
+                <div class="mt-4 text-center">
+                    <span id="switchAuthText" class="text-gray-600">Don't have an account? </span>
+                    <button id="switchAuth" class="text-blue-500 hover:underline font-medium">Register</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compose Message Modal -->
+        <div id="composeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-xl p-8 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Compose Message</h2>
+                    <button id="closeCompose" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2">Recipient (leave blank for public post)</label>
+                    <input type="text" id="recipientUsername" placeholder="Username (optional for public posts)"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2 dark:text-gray-300">Your Message</label>
+                    <div class="relative">
+                        <textarea id="messageContent" placeholder="Share your thoughts..." required
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
+                        <div class="absolute bottom-2 right-2 flex space-x-2">
+                            <button type="button" id="emojiPickerBtn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                                <i class="fas fa-smile"></i>
+                            </button>
+                            <button type="button" id="imageUploadBtn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                                <i class="fas fa-image"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="emojiPicker" class="emoji-picker bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-2 mt-2 hidden">
+                        <div class="grid grid-cols-8 gap-1">
+                            <span class="emoji-item">😀</span><span class="emoji-item">😂</span><span class="emoji-item">🥰</span><span class="emoji-item">😎</span>
+                            <span class="emoji-item">🤩</span><span class="emoji-item">😍</span><span class="emoji-item">🤗</span><span class="emoji-item">🤔</span>
+                            <span class="emoji-item">🙄</span><span class="emoji-item">😴</span><span class="emoji-item">🥳</span><span class="emoji-item">😭</span>
+                            <span class="emoji-item">😡</span><span class="emoji-item">🤯</span><span class="emoji-item">🥶</span><span class="emoji-item">😱</span>
+                            <span class="emoji-item">👍</span><span class="emoji-item">👎</span><span class="emoji-item">❤️</span><span class="emoji-item">🔥</span>
+                            <span class="emoji-item">💯</span><span class="emoji-item">✨</span><span class="emoji-item">🙏</span><span class="emoji-item">🎉</span>
+                        </div>
+                    </div>
+                    <input type="file" id="imageUpload" accept="image/*" class="hidden">
+                    <div id="imagePreview" class="mt-2 hidden">
+                        <img id="previewImg" src="" alt="Preview" class="max-w-full h-32 object-cover rounded-lg">
+                        <button type="button" id="removeImage" class="text-red-500 text-sm mt-1">Remove image</button>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="anonymousCheck" class="mr-2">
+                        <span class="text-gray-700">Post anonymously</span>
+                    </label>
+                </div>
+                
+                <button id="sendPost" class="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 font-medium">
+                    <i class="fas fa-paper-plane mr-2"></i> Send Message
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div id="mainContent">
+            <!-- Welcome Section -->
+            <div id="welcomeSection" class="text-center py-16">
+                <div class="max-w-2xl mx-auto">
+                    <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-6">
+                        Share Your Thoughts <span class="text-red-500">Anonymously</span>
+                    </h1>
+                    <p class="text-xl text-gray-600 mb-8">
+                        Confess is a platform where you can share your feelings, thoughts, and messages anonymously or send private messages to others.
+                    </p>
+                    <button id="getStartedBtn" class="bg-blue-500 text-white px-8 py-4 rounded-full text-lg font-medium hover:bg-blue-600 transition-all transform hover:scale-105">
+                        Get Started
+                    </button>
+                </div>
+            </div>
+
+            <!-- Feed Section -->
+            <div id="feedSection" class="hidden">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 class="text-2xl font-bold text-gray-800">Confession Feed</h2>
+                    <div class="flex space-x-4">
+                        <button id="composeBtn" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 flex items-center">
+                            <i class="fas fa-plus mr-2"></i> New Post
+                        </button>
+                        <select id="sortSelect" class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="newest">Newest First</option>
+                            <option value="popular">Most Liked</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="postsContainer" class="space-y-6">
+                    <!-- Posts will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Profile Section -->
+            <div id="profileSection" class="hidden">
+                <div class="bg-white rounded-xl shadow-md p-8">
+                    <div class="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8">
+                        <img id="profilePic" src="" alt="Profile" class="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg">
+                        <div class="flex-1 text-center md:text-left">
+                            <h2 id="profileUsername" class="text-3xl font-bold text-gray-800"></h2>
+                            <p id="profileBio" class="text-gray-600 mt-2"></p>
+                            <div class="flex flex-wrap justify-center md:justify-start gap-6 mt-4">
+                                <div class="text-center">
+                                    <div id="postCount" class="text-2xl font-bold text-blue-500">0</div>
+                                    <div class="text-gray-600">Posts</div>
+                                </div>
+                                <div class="text-center">
+                                    <div id="receivedCount" class="text-2xl font-bold text-green-500">0</div>
+                                    <div class="text-gray-600">Messages Received</div>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="sendMessageBtn" class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 flex items-center">
+                            <i class="fas fa-envelope mr-2"></i> Send Anonymous Message
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mt-8">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">User's Posts</h3>
+                    <div id="userPostsContainer" class="space-y-4">
+                        <!-- User posts will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inbox Section -->
+            <div id="inboxSection" class="hidden">
+                <div class="bg-white rounded-xl shadow-md p-6 dark:bg-gray-800">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 dark:text-white">Your Inbox</h2>
+                    <div id="messagesContainer" class="space-y-4">
+                        <!-- Messages will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trending Section -->
+            <div id="trendingSection" class="hidden">
+                <div class="bg-white rounded-xl shadow-md p-6 dark:bg-gray-800">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 dark:text-white">Trending Posts</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-6 text-white">
+                            <h3 class="text-lg font-bold mb-2">🔥 Most Liked Today</h3>
+                            <div id="mostLikedToday">Loading...</div>
+                        </div>
+                        <div class="bg-gradient-to-r from-green-500 to-teal-600 rounded-lg p-6 text-white">
+                            <h3 class="text-lg font-bold mb-2">💬 Most Commented</h3>
+                            <div id="mostCommented">Loading...</div>
+                        </div>
+                    </div>
+                    <div id="trendingPostsContainer" class="mt-8 space-y-4">
+                        <!-- Trending posts will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bookmarks Section -->
+            <div id="bookmarksSection" class="hidden">
+                <div class="bg-white rounded-xl shadow-md p-6 dark:bg-gray-800">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 dark:text-white">Saved Posts</h2>
+                    <div id="bookmarksContainer" class="space-y-4">
+                        <!-- Bookmarked posts will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Section -->
+            <div id="analyticsSection" class="hidden">
+                <div class="bg-white rounded-xl shadow-md p-6 dark:bg-gray-800">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 dark:text-white">Your Analytics</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-blue-50 p-6 rounded-lg dark:bg-blue-900/20">
+                            <div class="text-blue-600 text-3xl font-bold dark:text-blue-400" id="totalPosts">0</div>
+                            <div class="text-gray-600 dark:text-gray-300">Total Posts</div>
+                        </div>
+                        <div class="bg-green-50 p-6 rounded-lg dark:bg-green-900/20">
+                            <div class="text-green-600 text-3xl font-bold dark:text-green-400" id="totalLikes">0</div>
+                            <div class="text-gray-600 dark:text-gray-300">Total Likes Received</div>
+                        </div>
+                        <div class="bg-purple-50 p-6 rounded-lg dark:bg-purple-900/20">
+                            <div class="text-purple-600 text-3xl font-bold dark:text-purple-400" id="totalComments">0</div>
+                            <div class="text-gray-600 dark:text-gray-300">Total Comments</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 p-6 rounded-lg dark:bg-gray-700">
+                        <h3 class="text-lg font-bold mb-4 dark:text-white">Activity Timeline</h3>
+                        <div id="activityTimeline" class="space-y-3">
+                            <!-- Activity timeline will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notifications Section -->
+            <div id="notificationsSection" class="hidden">
+                <div class="bg-white rounded-xl shadow-md p-6 dark:bg-gray-800">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Notifications</h2>
+                        <button id="clearNotifications" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">Clear All</button>
+                    </div>
+                    <div id="notificationsContainer" class="space-y-4">
+                        <!-- Notifications will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Storage
+        class ConfessApp {
+            constructor() {
+                this.currentUser = null;
+                this.users = JSON.parse(localStorage.getItem('confess_users')) || [];
+                this.posts = JSON.parse(localStorage.getItem('confess_posts')) || [];
+                this.messages = JSON.parse(localStorage.getItem('confess_messages')) || [];
+                this.comments = JSON.parse(localStorage.getItem('confess_comments')) || [];
+                this.reports = JSON.parse(localStorage.getItem('confess_reports')) || [];
+                this.bookmarks = JSON.parse(localStorage.getItem('confess_bookmarks')) || [];
+                this.following = JSON.parse(localStorage.getItem('confess_following')) || [];
+                this.notifications = JSON.parse(localStorage.getItem('confess_notifications')) || [];
+                this.blockedUsers = JSON.parse(localStorage.getItem('confess_blocked')) || [];
+                this.settings = JSON.parse(localStorage.getItem('confess_settings')) || {
+                    theme: 'light',
+                    soundEnabled: true,
+                    customColor: '#3b82f6'
+                };
+                this.badWords = ['damn', 'hell', 'stupid', 'idiot', 'hate']; // Basic profanity filter
+                this.rateLimit = new Map(); // For spam prevention
+                this.init();
+            }
+
+            init() {
+                this.applyTheme();
+                this.checkAuth();
+                this.bindEvents();
+                this.loadFeed();
+                this.updateInboxBadge();
+                this.updateNotificationBadge();
+                this.setupPWA();
+            }
+
+            setupPWA() {
+                // Check if browser supports PWA features
+                if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', () => {
+                        // Service worker would be registered here in a real PWA
+                        console.log('PWA features available');
+                    });
+                }
+                
+                // Add to home screen prompt
+                let deferredPrompt;
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault();
+                    deferredPrompt = e;
+                    // Show install button logic would go here
+                });
+            }
+
+            // Theme Management
+            applyTheme() {
+                if (this.settings.theme === 'dark') {
+                    document.body.classList.add('dark-mode');
+                    document.querySelector('#themeToggle i').className = 'fas fa-sun';
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    document.querySelector('#themeToggle i').className = 'fas fa-moon';
+                }
+                this.updateThemeColors();
+            }
+
+            updateThemeColors() {
+                const root = document.documentElement;
+                root.style.setProperty('--primary-color', this.settings.customColor);
+            }
+
+            toggleTheme() {
+                this.settings.theme = this.settings.theme === 'light' ? 'dark' : 'light';
+                this.applyTheme();
+                localStorage.setItem('confess_settings', JSON.stringify(this.settings));
+                this.showToast(`Switched to ${this.settings.theme} mode`, 'info');
+            }
+
+            // Authentication
+            checkAuth() {
+                const userId = localStorage.getItem('confess_current_user');
+                if (userId) {
+                    this.currentUser = this.users.find(u => u.id === userId);
+                    if (this.currentUser) {
+                        this.showUserSection();
+                        return;
+                    }
+                }
+                this.showAuthSection();
+            }
+
+            showAuthSection() {
+                document.getElementById('authSection').classList.remove('hidden');
+                document.getElementById('userSection').classList.add('hidden');
+                document.getElementById('welcomeSection').classList.remove('hidden');
+                document.getElementById('feedSection').classList.add('hidden');
+                document.getElementById('profileSection').classList.add('hidden');
+                document.getElementById('inboxSection').classList.add('hidden');
+            }
+
+            showUserSection() {
+                document.getElementById('authSection').classList.add('hidden');
+                document.getElementById('userSection').classList.remove('hidden');
+                document.getElementById('navUsername').textContent = this.currentUser.username;
+                document.getElementById('navProfilePic').src = this.currentUser.profilePic || 'https://ui-avatars.com/api/?name=' + this.currentUser.username;
+                document.getElementById('welcomeSection').classList.add('hidden');
+                document.getElementById('feedSection').classList.remove('hidden');
+                this.loadFeed();
+            }
+
+            // Event Binding
+            bindEvents() {
+                // Auth events
+                document.getElementById('loginBtn').addEventListener('click', () => this.openAuthModal('login'));
+                document.getElementById('registerBtn').addEventListener('click', () => this.openAuthModal('register'));
+                document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
+                document.getElementById('switchAuth').addEventListener('click', () => this.switchAuthMode());
+                document.getElementById('closeModal').addEventListener('click', () => this.closeAuthModal());
+                document.getElementById('authForm').addEventListener('submit', (e) => this.handleAuth(e));
+
+                // Compose events
+                document.getElementById('composeBtn').addEventListener('click', () => this.openComposeModal());
+                document.getElementById('sendMessageBtn').addEventListener('click', () => this.openComposeModal());
+                document.getElementById('closeCompose').addEventListener('click', () => this.closeComposeModal());
+                document.getElementById('sendPost').addEventListener('click', () => this.sendPost());
+
+                // Media and Emoji
+                document.getElementById('emojiPickerBtn').addEventListener('click', () => this.toggleEmojiPicker());
+                document.getElementById('imageUploadBtn').addEventListener('click', () => document.getElementById('imageUpload').click());
+                document.getElementById('imageUpload').addEventListener('change', (e) => this.handleImageUpload(e));
+                document.getElementById('removeImage').addEventListener('click', () => this.removeImage());
+                
+                // Emoji selection
+                document.querySelectorAll('.emoji-item').forEach(emoji => {
+                    emoji.addEventListener('click', () => this.addEmoji(emoji.textContent));
+                });
+
+                // Navigation
+                document.getElementById('homeBtn').addEventListener('click', () => this.showFeed());
+                document.getElementById('trendingBtn').addEventListener('click', () => this.showTrending());
+                document.getElementById('bookmarksBtn').addEventListener('click', () => this.showBookmarks());
+                document.getElementById('inboxBtn').addEventListener('click', () => this.showInbox());
+                document.getElementById('notificationsBtn').addEventListener('click', () => this.showNotifications());
+                document.getElementById('analyticsBtn').addEventListener('click', () => this.showAnalytics());
+                document.getElementById('profileBtn').addEventListener('click', () => this.showProfile());
+                document.getElementById('getStartedBtn').addEventListener('click', () => this.openAuthModal('register'));
+                document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
+
+                // Search
+                document.getElementById('searchUser').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.searchUser();
+                });
+
+                // Sorting
+                document.getElementById('sortSelect').addEventListener('change', () => this.loadFeed());
+
+                // Notifications
+                document.getElementById('clearNotifications').addEventListener('click', () => this.clearNotifications());
+
+                // Click outside modals to close
+                document.addEventListener('click', (e) => {
+                    if (e.target.id === 'authModal') this.closeAuthModal();
+                    if (e.target.id === 'composeModal') this.closeComposeModal();
+                });
+            }
+
+            // Auth Methods
+            openAuthModal(mode) {
+                const modal = document.getElementById('authModal');
+                const title = document.getElementById('modalTitle');
+                const submitBtn = document.getElementById('authSubmit');
+                const profileFields = document.getElementById('profilePicField');
+                const bioField = document.getElementById('bioField');
+                const switchText = document.getElementById('switchAuthText');
+                const switchBtn = document.getElementById('switchAuth');
+
+                if (mode === 'register') {
+                    title.textContent = 'Create Account';
+                    submitBtn.textContent = 'Register';
+                    profileFields.classList.remove('hidden');
+                    bioField.classList.remove('hidden');
+                    switchText.innerHTML = 'Already have an account? ';
+                    switchBtn.textContent = 'Login';
+                } else {
+                    title.textContent = 'Login';
+                    submitBtn.textContent = 'Login';
+                    profileFields.classList.add('hidden');
+                    bioField.classList.add('hidden');
+                    switchText.innerHTML = "Don't have an account? ";
+                    switchBtn.textContent = 'Register';
+                }
+
+                modal.classList.remove('hidden');
+            }
+
+            closeAuthModal() {
+                document.getElementById('authModal').classList.add('hidden');
+                document.getElementById('authForm').reset();
+            }
+
+            switchAuthMode() {
+                const title = document.getElementById('modalTitle').textContent;
+                this.closeAuthModal();
+                setTimeout(() => {
+                    this.openAuthModal(title === 'Login' ? 'register' : 'login');
+                }, 100);
+            }
+
+            handleAuth(e) {
+                e.preventDefault();
+                const username = document.getElementById('authUsername').value.trim();
+                const password = document.getElementById('authPassword').value;
+                const mode = document.getElementById('modalTitle').textContent.toLowerCase();
+
+                if (mode === 'login') {
+                    this.login(username, password);
+                } else {
+                    const profilePic = document.getElementById('profilePicUrl').value.trim();
+                    const bio = document.getElementById('userBio').value.trim();
+                    this.register(username, password, profilePic, bio);
+                }
+            }
+
+            login(username, password) {
+                const user = this.users.find(u => u.username === username && u.password === password);
+                if (user) {
+                    this.currentUser = user;
+                    localStorage.setItem('confess_current_user', user.id);
+                    this.showUserSection();
+                    this.closeAuthModal();
+                    this.showToast('Login successful!', 'success');
+                } else {
+                    this.showToast('Invalid username or password', 'error');
+                }
+            }
+
+            register(username, password, profilePic, bio) {
+                if (this.users.some(u => u.username === username)) {
+                    this.showToast('Username already exists', 'error');
+                    return;
+                }
+
+                const newUser = {
+                    id: 'user_' + Date.now(),
+                    username,
+                    password,
+                    profilePic: profilePic || 'https://ui-avatars.com/api/?name=' + username,
+                    bio: bio || 'No bio yet',
+                    createdAt: new Date().toISOString()
+                };
+
+                this.users.push(newUser);
+                this.currentUser = newUser;
+                localStorage.setItem('confess_users', JSON.stringify(this.users));
+                localStorage.setItem('confess_current_user', newUser.id);
+                this.showUserSection();
+                this.closeAuthModal();
+                this.showToast('Account created successfully!', 'success');
+            }
+
+            logout() {
+                localStorage.removeItem('confess_current_user');
+                this.currentUser = null;
+                this.showAuthSection();
+                this.showToast('Logged out successfully', 'info');
+            }
+
+            // Post Methods
+            openComposeModal() {
+                document.getElementById('composeModal').classList.remove('hidden');
+            }
+
+            closeComposeModal() {
+                document.getElementById('composeModal').classList.add('hidden');
+                document.getElementById('recipientUsername').value = '';
+                document.getElementById('messageContent').value = '';
+                document.getElementById('anonymousCheck').checked = false;
+            }
+
+            // Media Handling
+            toggleEmojiPicker() {
+                const picker = document.getElementById('emojiPicker');
+                picker.classList.toggle('hidden');
+            }
+
+            addEmoji(emoji) {
+                const textarea = document.getElementById('messageContent');
+                textarea.value += emoji;
+                textarea.focus();
+            }
+
+            handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // Check file size (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    this.showToast('Image size must be less than 5MB', 'error');
+                    return;
+                }
+
+                // Check file type
+                if (!file.type.startsWith('image/')) {
+                    this.showToast('Please select an image file', 'error');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('previewImg').src = e.target.result;
+                    document.getElementById('imagePreview').classList.remove('hidden');
+                    this.currentImage = e.target.result; // Store base64 image
+                };
+                reader.readAsDataURL(file);
+            }
+
+            removeImage() {
+                document.getElementById('imagePreview').classList.add('hidden');
+                document.getElementById('imageUpload').value = '';
+                this.currentImage = null;
+            }
+
+            // Rate limiting for spam prevention
+            checkRateLimit(userId) {
+                const now = Date.now();
+                const userLimit = this.rateLimit.get(userId) || { count: 0, resetTime: now + 60000 };
+                
+                if (now > userLimit.resetTime) {
+                    userLimit.count = 0;
+                    userLimit.resetTime = now + 60000;
+                }
+                
+                if (userLimit.count >= 10) { // Max 10 posts per minute
+                    return false;
+                }
+                
+                userLimit.count++;
+                this.rateLimit.set(userId, userLimit);
+                return true;
+            }
+
+            // Content filtering
+            filterContent(content) {
+                let filteredContent = content;
+                
+                // Profanity filter
+                this.badWords.forEach(word => {
+                    const regex = new RegExp(word, 'gi');
+                    filteredContent = filteredContent.replace(regex, '*'.repeat(word.length));
+                });
+                
+                // Block list check
+                if (this.blockedUsers.includes(this.currentUser.id)) {
+                    return null; // User is blocked
+                }
+                
+                return filteredContent;
+            }
+
+            sendPost() {
+                const recipientUsername = document.getElementById('recipientUsername').value.trim();
+                const content = document.getElementById('messageContent').value.trim();
+                const isAnonymous = document.getElementById('anonymousCheck').checked;
+
+                if (!content) {
+                    this.showToast('Please enter a message', 'error');
+                    return;
+                }
+
+                // Rate limiting check
+                if (!this.checkRateLimit(this.currentUser.id)) {
+                    this.showToast('Please wait before posting again', 'error');
+                    return;
+                }
+
+                // Content filtering
+                const filteredContent = this.filterContent(content);
+                if (!filteredContent) {
+                    this.showToast('Your account has been restricted', 'error');
+                    return;
+                }
+
+                if (recipientUsername) {
+                    // Private message
+                    const recipient = this.users.find(u => u.username === recipientUsername);
+                    if (!recipient) {
+                        this.showToast('User not found', 'error');
+                        return;
+                    }
+
+                    // Check if recipient has blocked sender
+                    const recipientBlocked = JSON.parse(localStorage.getItem(`confess_blocked_${recipient.id}`) || '[]');
+                    if (recipientBlocked.includes(this.currentUser.id)) {
+                        this.showToast('This user has blocked you', 'error');
+                        return;
+                    }
+
+                    const message = {
+                        id: 'msg_' + Date.now(),
+                        senderId: this.currentUser.id,
+                        recipientId: recipient.id,
+                        content: filteredContent,
+                        image: this.currentImage,
+                        timestamp: new Date().toISOString(),
+                        isRead: false
+                    };
+
+                    this.messages.push(message);
+                    localStorage.setItem('confess_messages', JSON.stringify(this.messages));
+                    this.updateInboxBadge();
+                    this.addNotification(recipient.id, `${isAnonymous ? 'Anonymous' : this.currentUser.username} sent you a message`, 'message');
+                    this.showToast('Message sent anonymously!', 'success');
+                } else {
+                    // Public post
+                    const post = {
+                        id: 'post_' + Date.now(),
+                        authorId: this.currentUser.id,
+                        content: filteredContent,
+                        image: this.currentImage,
+                        isAnonymous,
+                        likes: 0,
+                        comments: 0,
+                        reactions: {},
+                        timestamp: new Date().toISOString(),
+                        reports: 0
+                    };
+
+                    this.posts.push(post);
+                    localStorage.setItem('confess_posts', JSON.stringify(this.posts));
+                    this.loadFeed();
+                    this.addNotification('all', `${isAnonymous ? 'Anonymous' : this.currentUser.username} posted a new confession`, 'post');
+                    this.showToast('Post published!', 'success');
+                }
+
+                this.closeComposeModal();
+            }
+
+            // Notification System
+            addNotification(userId, message, type = 'info') {
+                const notification = {
+                    id: 'notif_' + Date.now(),
+                    userId: userId === 'all' ? 'all' : userId,
+                    message,
+                    type,
+                    timestamp: new Date().toISOString(),
+                    isRead: userId === 'all' ? true : false
+                };
+
+                this.notifications.push(notification);
+                localStorage.setItem('confess_notifications', JSON.stringify(this.notifications));
+                
+                if (userId === 'all' || userId === this.currentUser?.id) {
+                    this.updateNotificationBadge();
+                    if (this.settings.soundEnabled) {
+                        this.playNotificationSound();
+                    }
+                    this.showToast(message, type);
+                }
+            }
+
+            updateNotificationBadge() {
+                if (!this.currentUser) return;
+
+                const unreadCount = this.notifications.filter(n => 
+                    (n.userId === this.currentUser.id || n.userId === 'all') && !n.isRead
+                ).length;
+
+                const badge = document.getElementById('notificationBadge');
+                if (unreadCount > 0) {
+                    badge.textContent = unreadCount;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+
+            playNotificationSound() {
+                // In a real app, this would play an actual sound
+                console.log('🔔 Notification sound');
+            }
+
+            // UI Methods
+            loadFeed() {
+                const container = document.getElementById('postsContainer');
+                let sortedPosts = [...this.posts];
+
+                const sortOption = document.getElementById('sortSelect').value;
+                if (sortOption === 'popular') {
+                    sortedPosts.sort((a, b) => b.likes - a.likes);
+                } else {
+                    sortedPosts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                }
+
+                container.innerHTML = sortedPosts.length === 0 
+                    ? '<div class="text-center py-12 text-gray-500 dark:text-gray-400">No posts yet. Be the first to share!</div>'
+                    : sortedPosts.map(post => this.createPostCard(post)).join('');
+            }
+
+            showTrending() {
+                document.getElementById('feedSection').classList.add('hidden');
+                document.getElementById('trendingSection').classList.remove('hidden');
+                document.getElementById('bookmarksSection').classList.add('hidden');
+                document.getElementById('inboxSection').classList.add('hidden');
+                document.getElementById('analyticsSection').classList.add('hidden');
+                document.getElementById('notificationsSection').classList.add('hidden');
+                document.getElementById('profileSection').classList.add('hidden');
+                
+                this.loadTrending();
+            }
+
+            showBookmarks() {
+                if (!this.currentUser) return;
+                
+                document.getElementById('feedSection').classList.add('hidden');
+                document.getElementById('trendingSection').classList.add('hidden');
+                document.getElementById('bookmarksSection').classList.remove('hidden');
+                document.getElementById('inboxSection').classList.add('hidden');
+                document.getElementById('analyticsSection').classList.add('hidden');
+                document.getElementById('notificationsSection').classList.add('hidden');
+                document.getElementById('profileSection').classList.add('hidden');
+                
+                this.loadBookmarks();
+            }
+
+            showAnalytics() {
+                if (!this.currentUser) return;
+                
+                document.getElementById('feedSection').classList.add('hidden');
+                document.getElementById('trendingSection').classList.add('hidden');
+                document.getElementById('bookmarksSection').classList.add('hidden');
+                document.getElementById('inboxSection').classList.add('hidden');
+                document.getElementById('analyticsSection').classList.remove('hidden');
+                document.getElementById('notificationsSection').classList.add('hidden');
+                document.getElementById('profileSection').classList.add('hidden');
+                
+                this.loadAnalytics();
+            }
+
+            showNotifications() {
+                if (!this.currentUser) return;
+                
+                document.getElementById('feedSection').classList.add('hidden');
+                document.getElementById('trendingSection').classList.add('hidden');
+                document.getElementById('bookmarksSection').classList.add('hidden');
+                document.getElementById('inboxSection').classList.add('hidden');
+                document.getElementById('analyticsSection').classList.add('hidden');
+                document.getElementById('notificationsSection').classList.remove('hidden');
+                document.getElementById('profileSection').classList.add('hidden');
+                
+                this.loadNotifications();
+            }
+
+            clearNotifications() {
+                this.notifications = this.notifications.filter(n => 
+                    n.userId !== this.currentUser.id && n.userId !== 'all'
+                );
+                localStorage.setItem('confess_notifications', JSON.stringify(this.notifications));
+                this.updateNotificationBadge();
+                this.loadNotifications();
+                this.showToast('Notifications cleared', 'info');
+            }
+
+            loadNotifications() {
+                const container = document.getElementById('notificationsContainer');
+                const userNotifications = this.notifications
+                    .filter(n => n.userId === this.currentUser.id || n.userId === 'all')
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                if (userNotifications.length === 0) {
+                    container.innerHTML = '<div class="text-center py-12 text-gray-500 dark:text-gray-400">No notifications</div>';
+                    return;
+                }
+
+                container.innerHTML = userNotifications.map(notif => `
+                    <div class="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 ${notif.isRead ? '' : 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500'}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-800 dark:text-gray-200">${this.escapeHtml(notif.message)}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${this.timeAgo(notif.timestamp)}</p>
+                            </div>
+                            ${!notif.isRead ? '<span class="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">New</span>' : ''}
+                        </div>
+                    </div>
+                `).join('');
+
+                // Mark notifications as read
+                userNotifications.forEach(notif => {
+                    if (!notif.isRead) {
+                        notif.isRead = true;
+                    }
+                });
+                localStorage.setItem('confess_notifications', JSON.stringify(this.notifications));
+                this.updateNotificationBadge();
+            }
+
+            loadTrending() {
+                // Most liked today
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const todayPosts = this.posts.filter(p => new Date(p.timestamp) >= today);
+                
+                const mostLiked = todayPosts.sort((a, b) => b.likes - a.likes)[0];
+                const mostLikedElement = document.getElementById('mostLikedToday');
+                if (mostLiked) {
+                    const author = this.users.find(u => u.id === mostLiked.authorId);
+                    mostLikedElement.innerHTML = `
+                        <p class="font-semibold">${this.escapeHtml(mostLiked.content.substring(0, 50))}...</p>
+                        <p class="text-sm opacity-90">by ${mostLiked.isAnonymous ? 'Anonymous' : author?.username || 'Unknown'} • ${mostLiked.likes} likes</p>
+                    `;
+                } else {
+                    mostLikedElement.innerHTML = '<p class="opacity-90">No posts today</p>';
+                }
+
+                // Most commented
+                const mostCommented = this.posts.sort((a, b) => (b.comments || 0) - (a.comments || 0))[0];
+                const mostCommentedElement = document.getElementById('mostCommented');
+                if (mostCommented) {
+                    const author = this.users.find(u => u.id === mostCommented.authorId);
+                    mostCommentedElement.innerHTML = `
+                        <p class="font-semibold">${this.escapeHtml(mostCommented.content.substring(0, 50))}...</p>
+                        <p class="text-sm opacity-90">by ${mostCommented.isAnonymous ? 'Anonymous' : author?.username || 'Unknown'} • ${mostCommented.comments || 0} comments</p>
+                    `;
+                } else {
+                    mostCommentedElement.innerHTML = '<p class="opacity-90">No comments yet</p>';
+                }
+
+                // Load trending posts (most liked in last 7 days)
+                const weekAgo = new Date();
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                const trendingPosts = this.posts
+                    .filter(p => new Date(p.timestamp) >= weekAgo)
+                    .sort((a, b) => (b.likes + (b.comments || 0)) - (a.likes + (a.comments || 0)))
+                    .slice(0, 10);
+
+                const container = document.getElementById('trendingPostsContainer');
+                container.innerHTML = trendingPosts.length === 0 
+                    ? '<div class="text-center py-12 text-gray-500 dark:text-gray-400">No trending posts</div>'
+                    : trendingPosts.map(post => this.createPostCard(post)).join('');
+            }
+
+            loadBookmarks() {
+                if (!this.currentUser) return;
+
+                const userBookmarks = this.bookmarks
+                    .filter(b => b.userId === this.currentUser.id)
+                    .map(b => this.posts.find(p => p.id === b.postId))
+                    .filter(p => p) // Remove null posts
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                const container = document.getElementById('bookmarksContainer');
+                container.innerHTML = userBookmarks.length === 0 
+                    ? '<div class="text-center py-12 text-gray-500 dark:text-gray-400">No saved posts</div>'
+                    : userBookmarks.map(post => this.createPostCard(post)).join('');
+            }
+
+            loadAnalytics() {
+                if (!this.currentUser) return;
+
+                const userPosts = this.posts.filter(p => p.authorId === this.currentUser.id);
+                const userComments = this.comments.filter(c => c.authorId === this.currentUser.id);
+                
+                // Total stats
+                document.getElementById('totalPosts').textContent = userPosts.length;
+                document.getElementById('totalLikes').textContent = userPosts.reduce((sum, post) => sum + post.likes, 0);
+                document.getElementById('totalComments').textContent = userComments.length;
+
+                // Activity timeline
+                const activities = [
+                    ...userPosts.map(p => ({ type: 'post', timestamp: p.timestamp, content: p.content })),
+                    ...userComments.map(c => ({ type: 'comment', timestamp: c.timestamp, content: c.content })),
+                    ...this.messages.filter(m => m.recipientId === this.currentUser.id).map(m => ({ type: 'message', timestamp: m.timestamp, content: m.content }))
+                ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                .slice(0, 20);
+
+                const timelineContainer = document.getElementById('activityTimeline');
+                timelineContainer.innerHTML = activities.length === 0 
+                    ? '<div class="text-center py-8 text-gray-500 dark:text-gray-400">No activity yet</div>'
+                    : activities.map(activity => `
+                        <div class="flex items-start space-x-3">
+                            <div class="flex-shrink-0">
+                                <div class="w-3 h-3 rounded-full ${
+                                    activity.type === 'post' ? 'bg-blue-500' : 
+                                    activity.type === 'comment' ? 'bg-green-500' : 'bg-purple-500'
+                                } mt-2"></div>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-gray-800 dark:text-gray-200 text-sm">
+                                    ${activity.type === 'post' ? 'Posted' : activity.type === 'comment' ? 'Commented' : 'Received message'}: 
+                                    ${this.escapeHtml(activity.content.substring(0, 60))}${activity.content.length > 60 ? '...' : ''}
+                                </p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">${this.timeAgo(activity.timestamp)}</p>
+                            </div>
+                        </div>
+                    `).join('');
+            }
+
+            createPostCard(post) {
+                const author = this.users.find(u => u.id === post.authorId);
+                if (!author) return '';
+
+                const timeAgo = this.timeAgo(post.timestamp);
+                const displayName = post.isAnonymous ? 'Anonymous' : author.username;
+                const displayPic = post.isAnonymous 
+                    ? 'https://ui-avatars.com/api/?name=Anonymous&background=cccccc'
+                    : (author.profilePic || 'https://ui-avatars.com/api/?name=' + author.username);
+
+                const isBookmarked = this.currentUser && 
+                    this.bookmarks.some(b => b.userId === this.currentUser.id && b.postId === post.id);
+                
+                const isFollowing = this.currentUser && 
+                    this.following.some(f => f.followerId === this.currentUser.id && f.followingId === post.authorId);
+
+                return `
+                    <div class="bg-white rounded-xl shadow-md p-6 fade-in dark:bg-gray-800">
+                        <div class="flex items-start space-x-4">
+                            <img src="${displayPic}" alt="${displayName}" class="w-12 h-12 rounded-full object-cover">
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="font-bold text-gray-800 dark:text-white">${displayName}</h3>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">${timeAgo}</p>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        ${this.currentUser && this.currentUser.id !== post.authorId ? `
+                                            <button onclick="app.toggleFollow('${post.authorId}')" class="text-gray-400 hover:text-blue-500 ${isFollowing ? 'text-blue-500' : ''}">
+                                                <i class="fas fa-${isFollowing ? 'user-check' : 'user-plus'}"></i>
+                                            </button>
+                                        ` : ''}
+                                        <button onclick="app.bookmarkPost('${post.id}')" class="text-gray-400 hover:text-yellow-500 ${isBookmarked ? 'text-yellow-500' : ''}">
+                                            <i class="fas fa-${isBookmarked ? 'bookmark' : 'bookmark'}"></i>
+                                        </button>
+                                        <button onclick="app.likePost('${post.id}')" class="text-gray-400 hover:text-red-500 reaction-button transition-colors">
+                                            <i class="fas fa-heart mr-1"></i>
+                                            <span id="likes_${post.id}">${post.likes}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <p class="mt-3 text-gray-700 dark:text-gray-300">${this.escapeHtml(post.content)}</p>
+                                
+                                ${post.image ? `
+                                    <div class="mt-3">
+                                        <img src="${post.image}" alt="Post image" class="rounded-lg max-w-full h-auto">
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                    <div class="flex space-x-4">
+                                        <button onclick="app.addComment('${post.id}')" class="text-gray-500 hover:text-blue-500 dark:text-gray-400">
+                                            <i class="fas fa-comment mr-1"></i>
+                                            <span id="comments_${post.id}">${post.comments || 0}</span>
+                                        </button>
+                                        <button onclick="app.sharePost('${post.id}')" class="text-gray-500 hover:text-green-500 dark:text-gray-400">
+                                            <i class="fas fa-share"></i>
+                                        </button>
+                                        <button onclick="app.reportPost('${post.id}')" class="text-gray-500 hover:text-red-500 dark:text-gray-400">
+                                            <i class="fas fa-flag"></i>
+                                        </button>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        ${this.getReactionButtons(post.id, post.reactions)}
+                                    </div>
+                                </div>
+                                
+                                <div id="comments_section_${post.id}" class="mt-4 hidden">
+                                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                                        <div id="comments_list_${post.id}" class="mb-3">
+                                            ${this.renderComments(post.id)}
+                                        </div>
+                                        ${this.currentUser ? `
+                                            <div class="flex space-x-2">
+                                                <input type="text" id="comment_input_${post.id}" placeholder="Add a comment..." 
+                                                       class="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-600 dark:text-white">
+                                                <button onclick="app.submitComment('${post.id}')" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                                                    <i class="fas fa-paper-plane"></i>
+                                                </button>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            getReactionButtons(postId, reactions = {}) {
+                const emojis = ['👍', '😂', '❤️', '😮', '😢', '😡'];
+                return emojis.map(emoji => `
+                    <button onclick="app.addReaction('${postId}', '${emoji}')" 
+                            class="reaction-button text-lg hover:scale-110 ${reactions[emoji] ? 'scale-125' : ''}">
+                        ${emoji} ${reactions[emoji] || ''}
+                    </button>
+                `).join('');
+            }
+
+            addReaction(postId, emoji) {
+                const post = this.posts.find(p => p.id === postId);
+                if (!post) return;
+
+                if (!post.reactions) post.reactions = {};
+                
+                if (post.reactions[emoji]) {
+                    post.reactions[emoji]++;
+                } else {
+                    post.reactions[emoji] = 1;
+                }
+
+                localStorage.setItem('confess_posts', JSON.stringify(this.posts));
+                this.loadFeed(); // Refresh to show updated reactions
+                this.showToast(`Reacted with ${emoji}`, 'success');
+            }
+
+            bookmarkPost(postId) {
+                if (!this.currentUser) return;
+
+                const existingBookmark = this.bookmarks.find(b => 
+                    b.userId === this.currentUser.id && b.postId === postId
+                );
+
+                if (existingBookmark) {
+                    // Remove bookmark
+                    this.bookmarks = this.bookmarks.filter(b => 
+                        !(b.userId === this.currentUser.id && b.postId === postId)
+                    );
+                    this.showToast('Removed from bookmarks', 'info');
+                } else {
+                    // Add bookmark
+                    this.bookmarks.push({
+                        id: 'bookmark_' + Date.now(),
+                        userId: this.currentUser.id,
+                        postId: postId,
+                        timestamp: new Date().toISOString()
+                    });
+                    this.showToast('Added to bookmarks', 'success');
+                }
+
+                localStorage.setItem('confess_bookmarks', JSON.stringify(this.bookmarks));
+                this.loadFeed(); // Refresh to update bookmark icon
+            }
+
+            toggleFollow(userId) {
+                if (!this.currentUser || this.currentUser.id === userId) return;
+
+                const existingFollow = this.following.find(f => 
+                    f.followerId === this.currentUser.id && f.followingId === userId
+                );
+
+                if (existingFollow) {
+                    // Unfollow
+                    this.following = this.following.filter(f => 
+                        !(f.followerId === this.currentUser.id && f.followingId === userId)
+                    );
+                    this.showToast('Unfollowed user', 'info');
+                } else {
+                    // Follow
+                    this.following.push({
+                        id: 'follow_' + Date.now(),
+                        followerId: this.currentUser.id,
+                        followingId: userId,
+                        timestamp: new Date().toISOString()
+                    });
+                    this.showToast('Following user', 'success');
+                }
+
+                localStorage.setItem('confess_following', JSON.stringify(this.following));
+                this.loadFeed(); // Refresh to update follow button
+            }
+
+            addComment(postId) {
+                const section = document.getElementById(`comments_section_${postId}`);
+                section.classList.toggle('hidden');
+            }
+
+            renderComments(postId) {
+                const postComments = this.comments.filter(c => c.postId === postId);
+                if (postComments.length === 0) {
+                    return '<p class="text-gray-500 text-sm dark:text-gray-400">No comments yet</p>';
+                }
+
+                return postComments.map(comment => {
+                    const author = this.users.find(u => u.id === comment.authorId);
+                    return `
+                        <div class="flex items-start space-x-2 mb-2">
+                            <img src="${author?.profilePic || 'https://ui-avatars.com/api/?name=' + (author?.username || 'U')}" 
+                                 alt="" class="w-6 h-6 rounded-full">
+                            <div>
+                                <span class="font-medium text-sm dark:text-white">${author?.username || 'Anonymous'}</span>
+                                <p class="text-gray-700 text-sm dark:text-gray-300">${this.escapeHtml(comment.content)}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">${this.timeAgo(comment.timestamp)}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            submitComment(postId) {
+                if (!this.currentUser) return;
+
+                const input = document.getElementById(`comment_input_${postId}`);
+                const content = input.value.trim();
+
+                if (!content) {
+                    this.showToast('Please enter a comment', 'error');
+                    return;
+                }
+
+                const filteredContent = this.filterContent(content);
+                if (!filteredContent) {
+                    this.showToast('Comment contains inappropriate content', 'error');
+                    return;
+                }
+
+                const comment = {
+                    id: 'comment_' + Date.now(),
+                    postId: postId,
+                    authorId: this.currentUser.id,
+                    content: filteredContent,
+                    timestamp: new Date().toISOString()
+                };
+
+                this.comments.push(comment);
+                localStorage.setItem('confess_comments', JSON.stringify(this.comments));
+
+                // Update post comment count
+                const post = this.posts.find(p => p.id === postId);
+                if (post) {
+                    post.comments = (post.comments || 0) + 1;
+                    localStorage.setItem('confess_posts', JSON.stringify(this.posts));
+                }
+
+                input.value = '';
+                this.loadFeed(); // Refresh to show new comment
+                this.showToast('Comment added', 'success');
+            }
+
+            sharePost(postId) {
+                const post = this.posts.find(p => p.id === postId);
+                if (!post) return;
+
+                const text = `Check out this confession: "${post.content.substring(0, 100)}..."`;
+                
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'Confess Post',
+                        text: text,
+                        url: window.location.href
+                    });
+                } else {
+                    // Fallback: copy to clipboard
+                    navigator.clipboard.writeText(text + ' ' + window.location.href);
+                    this.showToast('Link copied to clipboard!', 'success');
+                }
+            }
+
+            reportPost(postId) {
+                if (!this.currentUser) return;
+
+                const post = this.posts.find(p => p.id === postId);
+                if (!post) return;
+
+                if (post.reports >= 3) {
+                    this.showToast('This post has already been reported multiple times', 'info');
+                    return;
+                }
+
+                post.reports = (post.reports || 0) + 1;
+                localStorage.setItem('confess_posts', JSON.stringify(this.posts));
+
+                this.reports.push({
+                    id: 'report_' + Date.now(),
+                    postId: postId,
+                    reporterId: this.currentUser.id,
+                    timestamp: new Date().toISOString(),
+                    reason: 'Inappropriate content'
+                });
+                localStorage.setItem('confess_reports', JSON.stringify(this.reports));
+
+                this.showToast('Post reported. Thank you for helping keep our community safe.', 'success');
+            }
+
+            likePost(postId) {
+                const post = this.posts.find(p => p.id === postId);
+                if (post) {
+                    post.likes++;
+                    localStorage.setItem('confess_posts', JSON.stringify(this.posts));
+                    const likeBtn = document.querySelector(`#likes_${postId}`);
+                    if (likeBtn) {
+                        likeBtn.textContent = post.likes;
+                        likeBtn.parentElement.classList.add('like-animation');
+                        setTimeout(() => {
+                            likeBtn.parentElement.classList.remove('like-animation');
+                        }, 500);
+                    }
+                }
+            }
+
+            showFeed() {
+                document.getElementById('feedSection').classList.remove('hidden');
+                document.getElementById('profileSection').classList.add('hidden');
+                document.getElementById('inboxSection').classList.add('hidden');
+                this.loadFeed();
+            }
+
+            showProfile() {
+                if (!this.currentUser) return;
+
+                document.getElementById('feedSection').classList.add('hidden');
+                document.getElementById('profileSection').classList.remove('hidden');
+                document.getElementById('inboxSection').classList.add('hidden');
+
+                // Update profile info
+                document.getElementById('profileUsername').textContent = this.currentUser.username;
+                document.getElementById('profileBio').textContent = this.currentUser.bio;
+                document.getElementById('profilePic').src = this.currentUser.profilePic;
+
+                // Count posts and messages
+                const userPosts = this.posts.filter(p => p.authorId === this.currentUser.id);
+                const receivedMessages = this.messages.filter(m => m.recipientId === this.currentUser.id);
+
+                document.getElementById('postCount').textContent = userPosts.length;
+                document.getElementById('receivedCount').textContent = receivedMessages.length;
+
+                // Load user posts
+                const container = document.getElementById('userPostsContainer');
+                if (userPosts.length === 0) {
+                    container.innerHTML = '<div class="text-center py-8 text-gray-500">No posts yet</div>';
+                } else {
+                    container.innerHTML = userPosts
+                        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                        .map(post => this.createPostCard(post)).join('');
+                }
+            }
+
+            showInbox() {
+                if (!this.currentUser) return;
+
+                document.getElementById('feedSection').classList.add('hidden');
+                document.getElementById('profileSection').classList.add('hidden');
+                document.getElementById('inboxSection').classList.remove('hidden');
+
+                const userMessages = this.messages
+                    .filter(m => m.recipientId === this.currentUser.id)
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                const container = document.getElementById('messagesContainer');
+                if (userMessages.length === 0) {
+                    container.innerHTML = '<div class="text-center py-12 text-gray-500">No messages yet</div>';
+                } else {
+                    container.innerHTML = userMessages.map(msg => this.createMessageCard(msg)).join('');
+                    // Mark messages as read
+                    userMessages.forEach(msg => {
+                        if (!msg.isRead) {
+                            msg.isRead = true;
+                        }
+                    });
+                    localStorage.setItem('confess_messages', JSON.stringify(this.messages));
+                    this.updateInboxBadge();
+                }
+            }
+
+            createMessageCard(message) {
+                const timeAgo = this.timeAgo(message.timestamp);
+                return `
+                    <div class="bg-white rounded-lg border border-gray-200 p-5 ${message.isRead ? '' : 'border-l-4 border-l-blue-500'}">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <p class="text-gray-700">${this.escapeHtml(message.content)}</p>
+                                <p class="text-sm text-gray-500 mt-2">Received ${timeAgo}</p>
+                            </div>
+                            ${!message.isRead ? '<span class="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">New</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            searchUser() {
+                const searchTerm = document.getElementById('searchUser').value.trim().toLowerCase();
+                if (!searchTerm) return;
+
+                const user = this.users.find(u => u.username.toLowerCase() === searchTerm);
+                if (user) {
+                    this.showUserProfile(user);
+                } else {
+                    this.showToast('User not found', 'error');
+                }
+            }
+
+            showUserProfile(user) {
+                document.getElementById('feedSection').classList.add('hidden');
+                document.getElementById('profileSection').classList.remove('hidden');
+                document.getElementById('inboxSection').classList.add('hidden');
+
+                document.getElementById('profileUsername').textContent = user.username;
+                document.getElementById('profileBio').textContent = user.bio;
+                document.getElementById('profilePic').src = user.profilePic;
+
+                const userPosts = this.posts.filter(p => p.authorId === user.id);
+                const receivedMessages = this.messages.filter(m => m.recipientId === user.id);
+
+                document.getElementById('postCount').textContent = userPosts.length;
+                document.getElementById('receivedCount').textContent = receivedMessages.length;
+
+                // Show send message button only if it's not current user
+                const sendBtn = document.getElementById('sendMessageBtn');
+                if (user.id === this.currentUser?.id) {
+                    sendBtn.classList.add('hidden');
+                } else {
+                    sendBtn.classList.remove('hidden');
+                    sendBtn.onclick = () => {
+                        document.getElementById('recipientUsername').value = user.username;
+                        this.openComposeModal();
+                    };
+                }
+
+                const container = document.getElementById('userPostsContainer');
+                if (userPosts.length === 0) {
+                    container.innerHTML = '<div class="text-center py-8 text-gray-500">No posts yet</div>';
+                } else {
+                    container.innerHTML = userPosts
+                        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                        .map(post => this.createPostCard(post)).join('');
+                }
+            }
+
+            updateInboxBadge() {
+                if (!this.currentUser) return;
+
+                const unreadCount = this.messages.filter(m => 
+                    m.recipientId === this.currentUser.id && !m.isRead
+                ).length;
+
+                const badge = document.getElementById('inboxBadge');
+                if (unreadCount > 0) {
+                    badge.textContent = unreadCount;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+
+            // Utility Methods
+            timeAgo(dateString) {
+                const date = new Date(dateString);
+                const now = new Date();
+                const seconds = Math.floor((now - date) / 1000);
+
+                if (seconds < 60) return 'just now';
+                if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+                if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+                if (seconds < 2592000) return Math.floor(seconds / 86400) + 'd ago';
+                return Math.floor(seconds / 2592000) + 'mo ago';
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            showToast(message, type = 'info') {
+                // Create toast element
+                const toast = document.createElement('div');
+                toast.className = `fixed top-20 right-4 px-6 py-4 rounded-lg shadow-lg text-white z-50 transform transition-all duration-300 translate-x-full`;
+                
+                const colors = {
+                    success: 'bg-green-500',
+                    error: 'bg-red-500',
+                    info: 'bg-blue-500'
+                };
+                
+                toast.classList.add(colors[type] || colors.info);
+                toast.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
+                        ${message}
+                    </div>
+                `;
+                
+                document.body.appendChild(toast);
+                
+                // Animate in
+                setTimeout(() => {
+                    toast.classList.remove('translate-x-full');
+                }, 10);
+                
+                // Remove after 3 seconds
+                setTimeout(() => {
+                    toast.classList.add('translate-x-full');
+                    setTimeout(() => {
+                        document.body.removeChild(toast);
+                    }, 300);
+                }, 3000);
+            }
+        }
+
+        // Initialize app
+        const app = new ConfessApp();
+    </script>
+</body>
+</html>

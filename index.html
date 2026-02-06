@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confess - Choose Your Version</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .version-card {
+            transition: all 0.3s ease;
+        }
+        .version-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="container mx-auto px-4 py-12">
+        <div class="text-center mb-16">
+            <div class="flex justify-center items-center mb-6">
+                <i class="fas fa-heart text-red-500 text-5xl mr-4"></i>
+                <h1 class="text-5xl font-bold text-gray-800">Confess</h1>
+            </div>
+            <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+                Anonymous Messaging Platform - Choose your preferred version
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <!-- Local Storage Version -->
+            <div class="version-card bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-desktop text-2xl text-gray-600"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Local Storage Edition</h2>
+                    <p class="text-gray-600">Quick start, no setup required</p>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="font-semibold text-gray-800 mb-3">Features:</h3>
+                    <ul class="text-gray-600 space-y-2">
+                        <li class="flex items-center"><i class="fas fa-check text-green-500 mr-2"></i> Immediate use</li>
+                        <li class="flex items-center"><i class="fas fa-check text-green-500 mr-2"></i> All core features</li>
+                        <li class="flex items-center"><i class="fas fa-check text-green-500 mr-2"></i> No internet required</li>
+                        <li class="flex items-center"><i class="fas fa-check text-green-500 mr-2"></i> Simple deployment</li>
+                    </ul>
+                </div>
+                
+                <button onclick="launchLocal()" class="w-full bg-gray-800 text-white py-3 rounded-lg hover:bg-gray-900 font-medium transition-colors">
+                    <i class="fas fa-bolt mr-2"></i> Launch Local Version
+                </button>
+            </div>
+
+            <!-- Firebase Version -->
+            <div class="version-card bg-white rounded-2xl shadow-lg p-8 border-2 border-blue-500 relative">
+                <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-bold">
+                    RECOMMENDED
+                </div>
+                
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-cloud text-2xl text-blue-600"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Firebase Edition</h2>
+                    <p class="text-gray-600">Real-time cloud features</p>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="font-semibold text-gray-800 mb-3">Enhanced Features:</h3>
+                    <ul class="text-gray-600 space-y-2">
+                        <li class="flex items-center"><i class="fas fa-check text-green-500 mr-2"></i> Real-time updates</li>
+                        <li class="flex items-center"><i class="fas fa-check text-green-500 mr-2"></i> Cloud storage</li>
+                        <li class="flex items-center"><i class="fas fa-check text-green-500 mr-2"></i> User authentication</li>
+                        <li class="flex items-center"><i class="fas fa-check text-green-500 mr-2"></i> Professional security</li>
+                    </ul>
+                </div>
+                
+                <button onclick="launchFirebase()" class="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 font-medium transition-colors">
+                    <i class="fas fa-rocket mr-2"></i> Launch Firebase Version
+                </button>
+            </div>
+        </div>
+
+        <div class="text-center mt-12">
+            <div class="inline-flex items-center bg-white rounded-lg shadow-md p-4">
+                <i class="fas fa-book text-gray-600 mr-3"></i>
+                <div>
+                    <p class="text-gray-800 font-medium">Need help choosing?</p>
+                    <button onclick="openDocs()" class="text-blue-500 hover:text-blue-700 font-medium">
+                        Read Documentation
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function launchLocal() {
+            window.open('src/confess.html', '_blank');
+        }
+        
+        function launchFirebase() {
+            window.open('src/confess-firebase.html', '_blank');
+        }
+        
+        function openDocs() {
+            window.open('docs/README.md', '_blank');
+        }
+    </script>
+</body>
+</html>

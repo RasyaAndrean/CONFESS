@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#3b82f6">
+    <title>Confess - Firebase Edition</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Confess%22,%22short_name%22:%22Confess%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%23f9fafb%22,%22theme_color%22:%22%233b82f6%22}">
+    
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --secondary-color: #10b981;
+            --accent-color: #ef4444;
+            --background-color: #f9fafb;
+            --text-color: #1f2937;
+        }
+        
+        .dark-mode {
+            --background-color: #111827;
+            --text-color: #f9fafb;
+        }
+        
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .like-animation {
+            animation: likePulse 0.5s ease;
+        }
+        @keyframes likePulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .emoji-picker {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .emoji-item {
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 5px;
+        }
+        .emoji-item:hover {
+            background-color: #e5e7eb;
+        }
+        .dark-mode .emoji-item:hover {
+            background-color: #374151;
+        }
+        .reaction-button {
+            transition: all 0.2s ease;
+        }
+        .reaction-button:hover {
+            transform: scale(1.1);
+        }
+        .progress-bar {
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .online-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #10b981;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .offline-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #6b7280;
+            display: inline-block;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Firebase Connection Status -->
+    <div id="firebaseStatus" class="fixed top-0 left-0 right-0 bg-yellow-500 text-white text-center py-2 z-50 hidden">
+        <div class="container mx-auto px-4">
+            <i class="fas fa-exclamation-triangle mr-2"></i>
+            Connecting to Firebase...
+        </div>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow-md sticky top-0 z-40 dark:bg-gray-800">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-heart text-red-500 text-2xl mr-2"></i>
+                        <span class="text-xl font-bold text-gray-800 dark:text-white">Confess</span>
+                        <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2 dark:bg-blue-900 dark:text-blue-200">Firebase</span>
+                    </div>
+                    <div class="hidden md:flex space-x-6">
+                        <button id="homeBtn" class="text-gray-600 hover:text-blue-500 font-medium dark:text-gray-300">
+                            <i class="fas fa-home mr-1"></i> Home
+                        </button>
+                        <button id="trendingBtn" class="text-gray-600 hover:text-blue-500 font-medium dark:text-gray-300">
+                            <i class="fas fa-fire mr-1"></i> Trending
+                        </button>
+                        <button id="bookmarksBtn" class="text-gray-600 hover:text-blue-500 font-medium dark:text-gray-300">
+                            <i class="fas fa-bookmark mr-1"></i> Saved
+                        </button>
+                        <button id="inboxBtn" class="text-gray-600 hover:text-blue-500 font-medium relative dark:text-gray-300">
+                            <i class="fas fa-inbox mr-1"></i> Inbox
+                            <span id="inboxBadge" class="notification-badge hidden">0</span>
+                        </button>
+                        <button id="notificationsBtn" class="text-gray-600 hover:text-blue-500 font-medium relative dark:text-gray-300">
+                            <i class="fas fa-bell mr-1"></i>
+                            <span id="notificationBadge" class="notification-badge hidden bg-blue-500">0</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <input type="text" id="searchUser" placeholder="Search user..." 
+                               class="px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 w-48 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                        <i class="fas fa-search absolute right-3 top-3 text-gray-400"></i>
+                    </div>
+                    
+                    <div id="authSection">
+                        <button id="loginBtn" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 mr-2">
+                            Login
+                        </button>
+                        <button id="registerBtn" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                            Register
+                        </button>
+                        <button id="googleLoginBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 ml-2">
+                            <i class="fab fa-google mr-2"></i> Google
+                        </button>
+                    </div>
+                    
+                    <div id="userSection" class="hidden flex items-center space-x-3">
+                        <button id="themeToggle" class="text-gray-600 hover:text-yellow-500 dark:text-gray-300">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                        <button id="analyticsBtn" class="text-gray-600 hover:text-green-500 dark:text-gray-300">
+                            <i class="fas fa-chart-bar"></i>
+                        </button>
+                        <button id="profileBtn" class="flex items-center space-x-2">
+                            <img id="navProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full object-cover">
+                            <span id="navUsername" class="font-medium text-gray-700 dark:text-gray-200"></span>
+                            <span id="userStatus" class="online-status"></span>
+                        </button>
+                        <button id="logoutBtn" class="text-gray-600 hover:text-red-500 dark:text-gray-300">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <!-- Forgot Password Modal -->
+        <div id="forgotPasswordModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-xl p-8 w-full max-w-md mx-4 dark:bg-gray-800">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Reset Password</h2>
+                    <button id="closeForgotPassword" class="text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2 dark:text-gray-300">Email Address</label>
+                    <input type="email" id="resetEmail" placeholder="Enter your email"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                </div>
+                
+                <button id="sendResetEmail" class="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 font-medium">
+                    Send Reset Link
+                </button>
+            </div>
+        </div>
+
+        <!-- Login/Register Modal -->
+        <div id="authModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-xl p-8 w-full max-w-md mx-4 dark:bg-gray-800">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 id="modalTitle" class="text-2xl font-bold text-gray-800 dark:text-white">Login</h2>
+                    <button id="closeModal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <form id="authForm">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 mb-2 dark:text-gray-300">Email</label>
+                        <input type="email" id="authEmail" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 mb-2 dark:text-gray-300">Username</label>
+                        <input type="text" id="authUsername" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label class="block text-gray-700 mb-2 dark:text-gray-300">Password</label>
+                        <input type="password" id="authPassword" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                    
+                    <div id="profilePicField" class="mb-4 hidden">
+                        <label class="block text-gray-700 mb-2 dark:text-gray-300">Profile Picture</label>
+                        <input type="file" id="profilePicUpload" accept="image/*"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                        <div id="profilePicPreview" class="mt-2 hidden">
+                            <img src="" alt="Preview" class="w-16 h-16 rounded-full object-cover">
+                        </div>
+                    </div>
+                    
+                    <div id="bioField" class="mb-6 hidden">
+                        <label class="block text-gray-700 mb-2 dark:text-gray-300">Bio</label>
+                        <textarea id="userBio" placeholder="Tell us about yourself..."
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
+                    </div>
+                    
+                    <button type="submit" id="authSubmit" 
+                            class="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 font-medium">
+                        Login
+                    </button>
+                </form>
+                
+                <div class="mt-4 text-center">
+                    <button id="forgotPasswordLink" class="text-blue-500 hover:underline text-sm mb-2 block">
+                        Forgot Password?
+                    </button>
+                    <span id="switchAuthText" class="text-gray-600 dark:text-gray-400">Don't have an account? </span>
+                    <button id="switchAuth" class="text-blue-500 hover:underline font-medium">Register</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compose Message Modal -->
+        <div id="composeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-xl p-8 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto dark:bg-gray-800">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Compose Message</h2>
+                    <button id="closeCompose" class="text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2 dark:text-gray-300">Recipient (leave blank for public post)</label>
+                    <input type="text" id="recipientUsername" placeholder="Username (optional for public posts)"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2 dark:text-gray-300">Your Message</label>
+                    <div class="relative">
+                        <textarea id="messageContent" placeholder="Share your thoughts..." required
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
+                        <div class="absolute bottom-2 right-2 flex space-x-2">
+                            <button type="button" id="emojiPickerBtn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                                <i class="fas fa-smile"></i>
+                            </button>
+                            <button type="button" id="imageUploadBtn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                                <i class="fas fa-image"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="emojiPicker" class="emoji-picker bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-2 mt-2 hidden">
+                        <div class="grid grid-cols-8 gap-1">
+                            <span class="emoji-item">😀</span><span class="emoji-item">😂</span><span class="emoji-item">🥰</span><span class="emoji-item">😎</span>
+                            <span class="emoji-item">🤩</span><span class="emoji-item">😍</span><span class="emoji-item">🤗</span><span class="emoji-item">🤔</span>
+                            <span class="emoji-item">🙄</span><span class="emoji-item">😴</span><span class="emoji-item">🥳</span><span class="emoji-item">😭</span>
+                            <span class="emoji-item">😡</span><span class="emoji-item">🤯</span><span class="emoji-item">🥶</span><span class="emoji-item">😱</span>
+                            <span class="emoji-item">👍</span><span class="emoji-item">👎</span><span class="emoji-item">❤️</span><span class="emoji-item">🔥</span>
+                            <span class="emoji-item">💯</span><span class="emoji-item">✨</span><span class="emoji-item">🙏</span><span class="emoji-item">🎉</span>
+                        </div>
+                    </div>
+                    <input type="file" id="imageUpload" accept="image/*" class="hidden">
+                    <div id="imagePreview" class="mt-2 hidden">
+                        <img id="previewImg" src="" alt="Preview" class="max-w-full h-32 object-cover rounded-lg">
+                        <button type="button" id="removeImage" class="text-red-500 text-sm mt-1">Remove image</button>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="anonymousCheck" class="mr-2">
+                        <span class="text-gray-700 dark:text-gray-300">Post anonymously</span>
+                    </label>
+                </div>
+                
+                <button id="sendPost" class="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 font-medium">
+                    <i class="fas fa-paper-plane mr-2"></i> Send Message
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div id="mainContent">
+            <!-- Welcome Section -->
+            <div id="welcomeSection" class="text-center py-16">
+                <div class="max-w-2xl mx-auto">
+                    <div class="mb-6">
+                        <i class="fas fa-database text-6xl text-blue-500 mb-4"></i>
+                        <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-6 dark:text-white">
+                            Confess <span class="text-blue-500">Firebase</span> Edition
+                        </h1>
+                    </div>
+                    <p class="text-xl text-gray-600 mb-8 dark:text-gray-300">
+                        The next generation of anonymous messaging with real-time features, cloud storage, and enhanced security powered by Firebase.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button id="getStartedBtn" class="bg-blue-500 text-white px-8 py-4 rounded-full text-lg font-medium hover:bg-blue-600 transition-all transform hover:scale-105">
+                            Get Started
+                        </button>
+                        <button id="migrateDataBtn" class="bg-green-500 text-white px-8 py-4 rounded-full text-lg font-medium hover:bg-green-600 transition-all">
+                            <i class="fas fa-sync-alt mr-2"></i> Migrate Data
+                        </button>
+                    </div>
+                    <div class="mt-8 text-sm text-gray-500 dark:text-gray-400">
+                        <p>Already have an account? Login with email or Google</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feed Section -->
+            <div id="feedSection" class="hidden">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Confession Feed</h2>
+                    <div class="flex space-x-4">
+                        <button id="composeBtn" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 flex items-center">
+                            <i class="fas fa-plus mr-2"></i> New Post
+                        </button>
+                        <select id="sortSelect" class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            <option value="newest">Newest First</option>
+                            <option value="popular">Most Liked</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="postsContainer" class="space-y-6">
+                    <!-- Posts will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Other sections (trending, bookmarks, etc.) would go here -->
+            <!-- For brevity, I'm including the core structure -->
+        </div>
+    </div>
+
+    <!-- Firebase Configuration -->
+    <script src="firebase-config.js"></script>
+    
+    <!-- Migration Script -->
+    <script src="firebase-migration.js"></script>
+
+    <script>
+        // Main Application Class
+        class ConfessFirebaseApp {
+            constructor() {
+                this.currentUser = null;
+                this.currentImage = null;
+                this.settings = JSON.parse(localStorage.getItem('confess_settings')) || {
+                    theme: 'light',
+                    soundEnabled: true,
+                    customColor: '#3b82f6'
+                };
+                this.init();
+            }
+
+            init() {
+                this.showFirebaseStatus();
+                this.applyTheme();
+                this.bindEvents();
+                this.checkAuthState();
+            }
+
+            showFirebaseStatus() {
+                document.getElementById('firebaseStatus').classList.remove('hidden');
+                setTimeout(() => {
+                    document.getElementById('firebaseStatus').classList.add('hidden');
+                }, 3000);
+            }
+
+            checkAuthState() {
+                firebase.auth().onAuthStateChanged((user) => {
+                    if (user) {
+                        this.currentUser = user;
+                        this.loadUserData(user.uid);
+                        this.showUserSection();
+                        this.setupRealtimeListeners();
+                    } else {
+                        this.currentUser = null;
+                        this.showAuthSection();
+                        this.cleanupRealtimeListeners();
+                    }
+                });
+            }
+
+            async loadUserData(userId) {
+                try {
+                    const userData = await firestoreCRUD.getUser(userId);
+                    if (userData) {
+                        this.currentUser = { ...this.currentUser, ...userData };
+                        this.updateUserInterface();
+                    }
+                } catch (error) {
+                    console.error('Error loading user data:', error);
+                }
+            }
+
+            updateUserInterface() {
+                if (this.currentUser) {
+                    document.getElementById('navUsername').textContent = this.currentUser.username;
+                    document.getElementById('navProfilePic').src = this.currentUser.profilePic || 
+                        `https://ui-avatars.com/api/?name=${this.currentUser.username}`;
+                    
+                    // Update user status indicator
+                    const statusElement = document.getElementById('userStatus');
+                    if (this.currentUser.status === 'online') {
+                        statusElement.className = 'online-status';
+                    } else {
+                        statusElement.className = 'offline-status';
+                    }
+                }
+            }
+
+            showAuthSection() {
+                document.getElementById('authSection').classList.remove('hidden');
+                document.getElementById('userSection').classList.add('hidden');
+                document.getElementById('welcomeSection').classList.remove('hidden');
+                document.getElementById('feedSection').classList.add('hidden');
+            }
+
+            showUserSection() {
+                document.getElementById('authSection').classList.add('hidden');
+                document.getElementById('userSection').classList.remove('hidden');
+                document.getElementById('welcomeSection').classList.add('hidden');
+                document.getElementById('feedSection').classList.remove('hidden');
+                this.loadFeed();
+            }
+
+            bindEvents() {
+                // Auth events
+                document.getElementById('loginBtn').addEventListener('click', () => this.openAuthModal('login'));
+                document.getElementById('registerBtn').addEventListener('click', () => this.openAuthModal('register'));
+                document.getElementById('googleLoginBtn').addEventListener('click', () => this.loginWithGoogle());
+                document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
+                document.getElementById('switchAuth').addEventListener('click', () => this.switchAuthMode());
+                document.getElementById('closeModal').addEventListener('click', () => this.closeAuthModal());
+                document.getElementById('authForm').addEventListener('submit', (e) => this.handleAuth(e));
+                document.getElementById('forgotPasswordLink').addEventListener('click', () => this.openForgotPasswordModal());
+                document.getElementById('closeForgotPassword').addEventListener('click', () => this.closeForgotPasswordModal());
+                document.getElementById('sendResetEmail').addEventListener('click', () => this.sendPasswordReset());
+
+                // Compose events
+                document.getElementById('composeBtn').addEventListener('click', () => this.openComposeModal());
+                document.getElementById('sendMessageBtn').addEventListener('click', () => this.openComposeModal());
+                document.getElementById('closeCompose').addEventListener('click', () => this.closeComposeModal());
+                document.getElementById('sendPost').addEventListener('click', () => this.sendPost());
+
+                // Media and Emoji
+                document.getElementById('emojiPickerBtn').addEventListener('click', () => this.toggleEmojiPicker());
+                document.getElementById('imageUploadBtn').addEventListener('click', () => document.getElementById('imageUpload').click());
+                document.getElementById('imageUpload').addEventListener('change', (e) => this.handleImageUpload(e));
+                document.getElementById('removeImage').addEventListener('click', () => this.removeImage());
+                document.getElementById('profilePicUpload').addEventListener('change', (e) => this.handleProfilePicUpload(e));
+                
+                // Emoji selection
+                document.querySelectorAll('.emoji-item').forEach(emoji => {
+                    emoji.addEventListener('click', () => this.addEmoji(emoji.textContent));
+                });
+
+                // Navigation
+                document.getElementById('homeBtn').addEventListener('click', () => this.showFeed());
+                document.getElementById('trendingBtn').addEventListener('click', () => this.showTrending());
+                document.getElementById('bookmarksBtn').addEventListener('click', () => this.showBookmarks());
+                document.getElementById('inboxBtn').addEventListener('click', () => this.showInbox());
+                document.getElementById('notificationsBtn').addEventListener('click', () => this.showNotifications());
+                document.getElementById('analyticsBtn').addEventListener('click', () => this.showAnalytics());
+                document.getElementById('profileBtn').addEventListener('click', () => this.showProfile());
+                document.getElementById('getStartedBtn').addEventListener('click', () => this.openAuthModal('register'));
+                document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
+                document.getElementById('migrateDataBtn').addEventListener('click', () => this.migrateData());
+
+                // Search
+                document.getElementById('searchUser').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.searchUser();
+                });
+
+                // Sorting
+                document.getElementById('sortSelect').addEventListener('change', () => this.loadFeed());
+
+                // Click outside modals to close
+                document.addEventListener('click', (e) => {
+                    if (e.target.id === 'authModal') this.closeAuthModal();
+                    if (e.target.id === 'composeModal') this.closeComposeModal();
+                    if (e.target.id === 'forgotPasswordModal') this.closeForgotPasswordModal();
+                });
+            }
+
+            // Theme Management
+            applyTheme() {
+                if (this.settings.theme === 'dark') {
+                    document.body.classList.add('dark-mode');
+                    document.querySelector('#themeToggle i').className = 'fas fa-sun';
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    document.querySelector('#themeToggle i').className = 'fas fa-moon';
+                }
+            }
+
+            toggleTheme() {
+                this.settings.theme = this.settings.theme === 'light' ? 'dark' : 'light';
+                this.applyTheme();
+                localStorage.setItem('confess_settings', JSON.stringify(this.settings));
+                this.showToast(`Switched to ${this.settings.theme} mode`, 'info');
+            }
+
+            // Authentication Methods
+            openAuthModal(mode) {
+                const modal = document.getElementById('authModal');
+                const title = document.getElementById('modalTitle');
+                const submitBtn = document.getElementById('authSubmit');
+                const profileFields = document.getElementById('profilePicField');
+                const bioField = document.getElementById('bioField');
+                const switchText = document.getElementById('switchAuthText');
+                const switchBtn = document.getElementById('switchAuth');
+                const emailField = document.getElementById('authEmail');
+                const usernameField = document.getElementById('authUsername');
+
+                if (mode === 'register') {
+                    title.textContent = 'Create Account';
+                    submitBtn.textContent = 'Register';
+                    profileFields.classList.remove('hidden');
+                    bioField.classList.remove('hidden');
+                    emailField.parentElement.classList.remove('hidden');
+                    usernameField.parentElement.classList.remove('hidden');
+                    switchText.innerHTML = 'Already have an account? ';
+                    switchBtn.textContent = 'Login';
+                } else {
+                    title.textContent = 'Login';
+                    submitBtn.textContent = 'Login';
+                    profileFields.classList.add('hidden');
+                    bioField.classList.add('hidden');
+                    switchText.innerHTML = "Don't have an account? ";
+                    switchBtn.textContent = 'Register';
+                }
+
+                modal.classList.remove('hidden');
+            }
+
+            closeAuthModal() {
+                document.getElementById('authModal').classList.add('hidden');
+                document.getElementById('authForm').reset();
+                document.getElementById('profilePicPreview').classList.add('hidden');
+            }
+
+            switchAuthMode() {
+                const title = document.getElementById('modalTitle').textContent;
+                this.closeAuthModal();
+                setTimeout(() => {
+                    this.openAuthModal(title === 'Login' ? 'register' : 'login');
+                }, 100);
+            }
+
+            async handleAuth(e) {
+                e.preventDefault();
+                const email = document.getElementById('authEmail').value.trim();
+                const username = document.getElementById('authUsername').value.trim();
+                const password = document.getElementById('authPassword').value;
+                const bio = document.getElementById('userBio').value.trim();
+                const mode = document.getElementById('modalTitle').textContent.toLowerCase();
+
+                if (mode === 'login') {
+                    await this.loginWithEmail(email, password);
+                } else {
+                    await this.registerWithEmail(email, password, username, bio);
+                }
+            }
+
+            async loginWithEmail(email, password) {
+                const result = await firebaseAuth.loginWithEmail(email, password);
+                if (result.success) {
+                    this.showToast('Login successful!', 'success');
+                    this.closeAuthModal();
+                } else {
+                    this.showToast(result.error, 'error');
+                }
+            }
+
+            async registerWithEmail(email, password, username, bio) {
+                const result = await firebaseAuth.registerWithEmail(email, password, username, null, bio);
+                if (result.success) {
+                    this.showToast('Account created successfully!', 'success');
+                    this.closeAuthModal();
+                } else {
+                    this.showToast(result.error, 'error');
+                }
+            }
+
+            async loginWithGoogle() {
+                const result = await firebaseAuth.loginWithGoogle();
+                if (result.success) {
+                    this.showToast('Google login successful!', 'success');
+                } else {
+                    this.showToast(result.error, 'error');
+                }
+            }
+
+            async logout() {
+                const result = await firebaseAuth.logout();
+                if (result.success) {
+                    this.showToast('Logged out successfully', 'info');
+                } else {
+                    this.showToast(result.error, 'error');
+                }
+            }
+
+            // Password Reset
+            openForgotPasswordModal() {
+                document.getElementById('forgotPasswordModal').classList.remove('hidden');
+            }
+
+            closeForgotPasswordModal() {
+                document.getElementById('forgotPasswordModal').classList.add('hidden');
+                document.getElementById('resetEmail').value = '';
+            }
+
+            async sendPasswordReset() {
+                const email = document.getElementById('resetEmail').value.trim();
+                if (!email) {
+                    this.showToast('Please enter your email address', 'error');
+                    return;
+                }
+
+                const result = await firebaseAuth.resetPassword(email);
+                if (result.success) {
+                    this.showToast(result.message, 'success');
+                    this.closeForgotPasswordModal();
+                } else {
+                    this.showToast(result.error, 'error');
+                }
+            }
+
+            // Media Handling
+            toggleEmojiPicker() {
+                const picker = document.getElementById('emojiPicker');
+                picker.classList.toggle('hidden');
+            }
+
+            addEmoji(emoji) {
+                const textarea = document.getElementById('messageContent');
+                textarea.value += emoji;
+                textarea.focus();
+            }
+
+            async handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (file.size > 5 * 1024 * 1024) {
+                    this.showToast('Image size must be less than 5MB', 'error');
+                    return;
+                }
+
+                if (!file.type.startsWith('image/')) {
+                    this.showToast('Please select an image file', 'error');
+                    return;
+                }
+
+                try {
+                    const result = await firebaseStorage.uploadPostImage(file, 'temp_' + Date.now());
+                    if (result.success) {
+                        document.getElementById('previewImg').src = result.url;
+                        document.getElementById('imagePreview').classList.remove('hidden');
+                        this.currentImage = result.url;
+                        this.showToast('Image uploaded successfully!', 'success');
+                    } else {
+                        this.showToast(result.error, 'error');
+                    }
+                } catch (error) {
+                    this.showToast('Error uploading image: ' + error.message, 'error');
+                }
+            }
+
+            async handleProfilePicUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (file.size > 5 * 1024 * 1024) {
+                    this.showToast('Image size must be less than 5MB', 'error');
+                    return;
+                }
+
+                try {
+                    const result = await firebaseStorage.uploadProfilePicture(file, this.currentUser.uid);
+                    if (result.success) {
+                        document.querySelector('#profilePicPreview img').src = result.url;
+                        document.getElementById('profilePicPreview').classList.remove('hidden');
+                        this.showToast('Profile picture uploaded!', 'success');
+                    } else {
+                        this.showToast(result.error, 'error');
+                    }
+                } catch (error) {
+                    this.showToast('Error uploading profile picture: ' + error.message, 'error');
+                }
+            }
+
+            removeImage() {
+                document.getElementById('imagePreview').classList.add('hidden');
+                document.getElementById('imageUpload').value = '';
+                this.currentImage = null;
+            }
+
+            // Post Methods
+            openComposeModal() {
+                document.getElementById('composeModal').classList.remove('hidden');
+            }
+
+            closeComposeModal() {
+                document.getElementById('composeModal').classList.add('hidden');
+                document.getElementById('recipientUsername').value = '';
+                document.getElementById('messageContent').value = '';
+                document.getElementById('anonymousCheck').checked = false;
+                this.removeImage();
+            }
+
+            async sendPost() {
+                const recipientUsername = document.getElementById('recipientUsername').value.trim();
+                const content = document.getElementById('messageContent').value.trim();
+                const isAnonymous = document.getElementById('anonymousCheck').checked;
+
+                if (!content) {
+                    this.showToast('Please enter a message', 'error');
+                    return;
+                }
+
+                if (recipientUsername) {
+                    // Private message
+                    const users = await firestoreCRUD.searchUsers(recipientUsername);
+                    const recipient = users.find(u => u.username === recipientUsername);
+                    
+                    if (!recipient) {
+                        this.showToast('User not found', 'error');
+                        return;
+                    }
+
+                    const result = await firestoreCRUD.sendPrivateMessage(
+                        this.currentUser.uid, 
+                        recipient.userId, 
+                        content, 
+                        this.currentImage
+                    );
+
+                    if (result.success) {
+                        this.showToast('Message sent anonymously!', 'success');
+                    } else {
+                        this.showToast(result.error, 'error');
+                    }
+                } else {
+                    // Public post
+                    const result = await firestoreCRUD.createPost(
+                        this.currentUser.uid, 
+                        content, 
+                        isAnonymous, 
+                        this.currentImage
+                    );
+
+                    if (result.success) {
+                        this.showToast('Post published!', 'success');
+                        this.loadFeed();
+                    } else {
+                        this.showToast(result.error, 'error');
+                    }
+                }
+
+                this.closeComposeModal();
+            }
+
+            // UI Methods
+            async loadFeed() {
+                const container = document.getElementById('postsContainer');
+                const sortBy = document.getElementById('sortSelect').value;
+                
+                try {
+                    const posts = await firestoreCRUD.getPosts(sortBy);
+                    
+                    container.innerHTML = posts.length === 0 
+                        ? '<div class="text-center py-12 text-gray-500 dark:text-gray-400">No posts yet. Be the first to share!</div>'
+                        : posts.map(post => this.createPostCard(post)).join('');
+                        
+                } catch (error) {
+                    console.error('Error loading feed:', error);
+                    container.innerHTML = '<div class="text-center py-12 text-red-500">Error loading posts</div>';
+                }
+            }
+
+            createPostCard(post) {
+                const timeAgo = this.timeAgo(post.timestamp?.toDate?.() || new Date());
+                const displayName = post.isAnonymous ? 'Anonymous' : (post.authorData?.username || 'Unknown');
+                const displayPic = post.isAnonymous 
+                    ? 'https://ui-avatars.com/api/?name=Anonymous&background=cccccc'
+                    : (post.authorData?.profilePic || 'https://ui-avatars.com/api/?name=' + (post.authorData?.username || 'U'));
+
+                return `
+                    <div class="bg-white rounded-xl shadow-md p-6 fade-in dark:bg-gray-800">
+                        <div class="flex items-start space-x-4">
+                            <img src="${displayPic}" alt="${displayName}" class="w-12 h-12 rounded-full object-cover">
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="font-bold text-gray-800 dark:text-white">${displayName}</h3>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">${timeAgo}</p>
+                                    </div>
+                                    <button onclick="app.likePost('${post.postId}')" class="text-gray-400 hover:text-red-500 reaction-button transition-colors">
+                                        <i class="fas fa-heart mr-1"></i>
+                                        <span id="likes_${post.postId}">${post.likes?.length || 0}</span>
+                                    </button>
+                                </div>
+                                
+                                <p class="mt-3 text-gray-700 dark:text-gray-300">${this.escapeHtml(post.content)}</p>
+                                
+                                ${post.image ? `
+                                    <div class="mt-3">
+                                        <img src="${post.image}" alt="Post image" class="rounded-lg max-w-full h-auto">
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                    <div class="flex space-x-4">
+                                        <button onclick="app.addComment('${post.postId}')" class="text-gray-500 hover:text-blue-500 dark:text-gray-400">
+                                            <i class="fas fa-comment mr-1"></i>
+                                            <span id="comments_${post.postId}">${post.comments?.length || 0}</span>
+                                        </button>
+                                        <button onclick="app.sharePost('${post.postId}')" class="text-gray-500 hover:text-green-500 dark:text-gray-400">
+                                            <i class="fas fa-share"></i>
+                                        </button>
+                                        <button onclick="app.reportPost('${post.postId}')" class="text-gray-500 hover:text-red-500 dark:text-gray-400">
+                                            <i class="fas fa-flag"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            async likePost(postId) {
+                const result = await firestoreCRUD.likePost(postId, this.currentUser.uid);
+                if (result.success) {
+                    // Update UI
+                    const likeBtn = document.querySelector(`#likes_${postId}`);
+                    if (likeBtn) {
+                        // Refresh the post to get updated like count
+                        this.loadFeed();
+                        likeBtn.parentElement.classList.add('like-animation');
+                        setTimeout(() => {
+                            likeBtn.parentElement.classList.remove('like-animation');
+                        }, 500);
+                    }
+                } else {
+                    this.showToast(result.error, 'error');
+                }
+            }
+
+            async addComment(postId) {
+                const content = prompt('Enter your comment:');
+                if (content && content.trim()) {
+                    const result = await firestoreCRUD.addComment(postId, this.currentUser.uid, content.trim());
+                    if (result.success) {
+                        this.showToast('Comment added!', 'success');
+                        this.loadFeed(); // Refresh to show new comment
+                    } else {
+                        this.showToast(result.error, 'error');
+                    }
+                }
+            }
+
+            sharePost(postId) {
+                const post = document.querySelector(`#post_${postId}`);
+                const text = post ? `Check out this confession on Confess!` : 'Check out Confess - Anonymous Messaging Platform';
+                
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'Confess Post',
+                        text: text,
+                        url: window.location.href
+                    });
+                } else {
+                    navigator.clipboard.writeText(`${text} ${window.location.href}`);
+                    this.showToast('Link copied to clipboard!', 'success');
+                }
+            }
+
+            async reportPost(postId) {
+                const result = await firestoreCRUD.reportPost(postId, this.currentUser.uid);
+                if (result.success) {
+                    this.showToast('Post reported. Thank you for helping keep our community safe.', 'success');
+                } else {
+                    this.showToast(result.error, 'error');
+                }
+            }
+
+            // Navigation Methods
+            showFeed() {
+                this.hideAllSections();
+                document.getElementById('feedSection').classList.remove('hidden');
+                this.loadFeed();
+            }
+
+            showTrending() {
+                this.showToast('Trending section coming soon!', 'info');
+            }
+
+            showBookmarks() {
+                this.showToast('Bookmarks section coming soon!', 'info');
+            }
+
+            showInbox() {
+                this.showToast('Inbox section coming soon!', 'info');
+            }
+
+            showNotifications() {
+                this.showToast('Notifications section coming soon!', 'info');
+            }
+
+            showAnalytics() {
+                this.showToast('Analytics section coming soon!', 'info');
+            }
+
+            showProfile() {
+                this.showToast('Profile section coming soon!', 'info');
+            }
+
+            hideAllSections() {
+                document.getElementById('feedSection').classList.add('hidden');
+                document.getElementById('welcomeSection').classList.add('hidden');
+            }
+
+            async searchUser() {
+                const searchTerm = document.getElementById('searchUser').value.trim();
+                if (!searchTerm) return;
+
+                try {
+                    const users = await firestoreCRUD.searchUsers(searchTerm);
+                    if (users.length > 0) {
+                        this.showToast(`Found ${users.length} users`, 'success');
+                        // Show user search results
+                    } else {
+                        this.showToast('No users found', 'info');
+                    }
+                } catch (error) {
+                    this.showToast('Error searching users: ' + error.message, 'error');
+                }
+            }
+
+            // Migration
+            async migrateData() {
+                if (!this.currentUser) {
+                    this.showToast('Please login first to migrate data', 'error');
+                    return;
+                }
+
+                if (confirm('This will migrate your localStorage data to Firebase. This cannot be undone. Continue?')) {
+                    try {
+                        const result = await runMigration();
+                        if (result.success) {
+                            this.showToast('Data migration completed successfully!', 'success');
+                        } else {
+                            this.showToast('Migration failed: ' + result.error, 'error');
+                        }
+                    } catch (error) {
+                        this.showToast('Migration error: ' + error.message, 'error');
+                    }
+                }
+            }
+
+            // Real-time Listeners
+            setupRealtimeListeners() {
+                if (!this.currentUser) return;
+
+                // Listen for new messages
+                this.messageListener = realTimeListeners.listenForMessages(
+                    this.currentUser.uid, 
+                    (messages) => {
+                        this.showToast('You have new messages!', 'info');
+                        this.updateInboxBadge();
+                    }
+                );
+
+                // Listen for notifications
+                this.notificationListener = realTimeListeners.listenForNotifications(
+                    this.currentUser.uid,
+                    (notifications) => {
+                        this.showToast(notifications[0]?.content || 'New notification', 'info');
+                        this.updateNotificationBadge();
+                    }
+                );
+
+                // Listen for user presence
+                this.presenceListener = realTimeListeners.listenForUserPresence(
+                    this.currentUser.uid,
+                    (status) => {
+                        const statusElement = document.getElementById('userStatus');
+                        if (status === 'online') {
+                            statusElement.className = 'online-status';
+                        } else {
+                            statusElement.className = 'offline-status';
+                        }
+                    }
+                );
+            }
+
+            cleanupRealtimeListeners() {
+                realTimeListeners.cleanup();
+            }
+
+            updateInboxBadge() {
+                // This would be implemented with proper message counting
+                document.getElementById('inboxBadge').classList.add('hidden');
+            }
+
+            updateNotificationBadge() {
+                // This would be implemented with proper notification counting
+                document.getElementById('notificationBadge').classList.add('hidden');
+            }
+
+            // Utility Methods
+            timeAgo(date) {
+                if (!(date instanceof Date)) return 'Unknown time';
+                
+                const now = new Date();
+                const seconds = Math.floor((now - date) / 1000);
+
+                if (seconds < 60) return 'just now';
+                if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+                if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+                if (seconds < 2592000) return Math.floor(seconds / 86400) + 'd ago';
+                return Math.floor(seconds / 2592000) + 'mo ago';
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `fixed top-20 right-4 px-6 py-4 rounded-lg shadow-lg text-white z-50 transform transition-all duration-300 translate-x-full`;
+                
+                const colors = {
+                    success: 'bg-green-500',
+                    error: 'bg-red-500',
+                    info: 'bg-blue-500'
+                };
+                
+                toast.classList.add(colors[type] || colors.info);
+                toast.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
+                        ${message}
+                    </div>
+                `;
+                
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.classList.remove('translate-x-full');
+                }, 10);
+                
+                setTimeout(() => {
+                    toast.classList.add('translate-x-full');
+                    setTimeout(() => {
+                        document.body.removeChild(toast);
+                    }, 300);
+                }, 3000);
+            }
+        }
+
+        // Initialize app when Firebase is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if Firebase is loaded
+            if (typeof firebase === 'undefined') {
+                console.error('Firebase SDK not loaded');
+                document.getElementById('firebaseStatus').innerHTML = 
+                    '<div class="container mx-auto px-4"><i class="fas fa-exclamation-triangle mr-2"></i>Firebase SDK failed to load. Please check your internet connection.</div>';
+                document.getElementById('firebaseStatus').classList.remove('hidden');
+                return;
+            }
+
+            // Initialize the app
+            window.app = new ConfessFirebaseApp();
+        });
+    </script>
+</body>
+</html>

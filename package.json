@@ -1,0 +1,27 @@
+{
+  "name": "confess",
+  "version": "2.0.0",
+  "description": "Anonymous messaging platform with Firebase integration",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve .",
+    "deploy": "gh-pages -d ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RasyaAndrean/CONFESS.git"
+  },
+  "keywords": [
+    "anonymous",
+    "messaging",
+    "confess",
+    "firebase",
+    "real-time"
+  ],
+  "author": "RasyaAndrean",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/RasyaAndrean/CONFESS/issues"
+  },
+  "homepage": "https://github.com/RasyaAndrean/CONFESS#readme"
+}
